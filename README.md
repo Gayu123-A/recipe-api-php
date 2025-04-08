@@ -1,108 +1,273 @@
-# PHP Developer Test
+## Index
 
-Hello and thanks for taking the time to try this out.
+1. Docker Setup:
+	1.1: Changes made in docker-compose.yaml
+	1.2: Changes made in Dockerfile
+	1.3: Commands to start the docker and verify containers are running
 
-The goal of this test is to assert (to some degree) your coding and architectural skills. You're given a simple problem so you can focus on showcasing development techniques. We encourage you to overengineer the solution to show off what you can do - assume you're building a production-ready application that other developers will need to work on and add to over time.
+2. Database and Tables Creation:
+	2.1: Create and test database connection
+  	2.2: Tables Creation
+	2.3: Tables Structure
 
-You're **allowed and encouraged** to use third party libraries, as long as you put them together yourself **without relying on a framework or microframework** to do it for you. An effective developer knows what to build and what to reuse, but also how his/her tools work. Be prepared to answer some questions about those libraries, like why you chose them and what other alternatives you're familiar with.
+3. Recipe API Documentation
+    3.1: About JWT Authentication
 
-As this is a code review process, please avoid adding generated code to the project. This makes our jobs as reviewers more difficult, as we can't review code you didn't write. This means avoiding libraries like _Propel ORM_, which generates thousands of lines of code in stub files.
+## 1. Docker Setup:
+	## 1.1 Changes made in docker-compose.yaml
 
+    	File : docker-compose.yaml
+    
+    	1. Removed the “version: 2”, since the attribute “version” is obsolete.
+    	2. Replaced “PostgreSQL” service with “MySQL” service:
+              # MySQL Database
+              mysql:
+                image: mysql:latest
+                container_name: mysql_container
+                restart: always
+                environment:
+                  MYSQL_ROOT_USER: root
+                  MYSQL_ROOT_PASSWORD: root
+                  MYSQL_DATABASE: recipes_db
+                  MYSQL_USER: user
+                  MYSQL_USER_PASSWORD: password
+                ports:
+                  - "3306:3306"
+                volumes:
+                  - mysql_data:/var/lib/mysql
+    
+    	3. Modified PHP container to link with MySQL
+            php:
+                build: .
+                restart: unless-stopped
+                volumes:
+                  - ./:/var/www/html
+                ports:
+                  - "8080:80"
+                  #- "443:443"
+                links:
+                  - mysql
+                  - redis
+                environment:
+                  DEBUG: "true"
+                  DB_CONNECTION: mysql
+                  DB_HOST: mysql
+                  DB_PORT: 3306
+                  DB_DATABASE: recipes_db
+                  DB_USERNAME: user
+                  DB_PASSWORD: password
+    
+    	4. Defined “mysql_data” under volumes: at the end, since MySQL service refers to this volume.
+                volumes:
+                  mysql_data: # This defines the missing volume
 
-## Prerequsites
+	## 1.2: Changes made in Dockerfile
 
-We use [Docker](https://www.docker.com/products/docker) to administer this test. This ensures that we get an identical result to you when we test your application out, and it also matches our internal development workflows. If you don't have it already, you'll need Docker installed on your machine. **The application MUST run in the Docker containers** - if it doesn't we cannot accept your submission. You **MAY** edit the containers or add additional ones if you like (or completely re-do everything), but this **MUST** be clearly documented.
+	    File: Dockerfile
 
-We have provided some containers to help build your application in PHP with a variety of persistence layers available to use. (you may start from scratch if you like)
+        	1. Commented the line
+        		FROM quay.io/hellofresh/php70:7.1, since the image is outdated.
+        	    And used the image “php:7.4-apache”.
+        
+            	#FROM quay.io/hellofresh/php70:7.1
+                   FROM php:7.4-apache
+        
+        	2. Commented the line
+            	# RUN sed -i -e "s/;clear_env\s*=\s*no/clear_env = no/g" /etc/php/7.4/fpm/pool.d/www.conf
+            		Since PHP 7.4 (Apache) does not use FPM by default.
+        
+        	3. Installed pdo_mysql extension and running it:
+        	    RUN docker-php-ext-install pdo pdo_mysql
 
-### Technology
+            4. Install Composer
+                COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-- Valid PHP 7.1 or newer
-- Persist data to either Postgres, Mysql (add yourself), Redis, or MongoDB (in the provided containers).
-    - Postgres connection details:
-        - host: `postgres`
-        - port: `5432`
-        - dbname: `hellofresh`
-        - username: `hellofresh`
-        - password: `hellofresh`
-    - Redis connection details:
-        - host: `redis`
-        - port: `6379`
-    - MongoDB connection details:
-        - host: `mongodb`
-        - port: `27017`
-- Use the provided `docker-compose.yml` file in the root of this repository. You are free to add more containers to this if you like.
+    ## 1.3: Commands to start the docker and verify containers are running
+    
+            Rebuild & Restart the Docker Containers:
+                docker compose up -d –build
+                
+            Verify Containers Are Running:
+                docker ps
+ 
+## Database and Tables Creation:
 
-## Instructions
+    ## 2.1: Create and test database connection
+    
+        File: database.php
+        	The connection to the mysql database (recipes_db) is made by executing:
+                $conn = new PDO("mysql:host=$hostname;dbname=$dbname", $username, $password);
+        
+            Test Database Connection
+            
+            Try running:
+                docker exec -it <php_container_name> php /server/http/database.php
+                
+            If everything is correctly set up, it should output: "Connected successfully"
+ 
+     ## 2.2: Tables Creation
 
-1. Create a Git Repository and add these files
-- Run `docker-compose up -d` to start the development environment.
-- Visit `http://localhost` to see the contents of the web container and develop your application.
-- Add all code changes to the git repository
-- Zip all completed files (with the git repository files) and email back to us.
+        	File: setup_tables.php
+        		Execute the file to create tables (recipes and ratings) within the recipes_db, using the command:
+                    docker exec -it <php_container_name> php /server/http/setup_tables.php
+         
+            NOTE: Verify the tables and it’s structure once again, in the mysql_container.
 
-## Requirements
+    ## 2.3: Tables Structure:
+    
+        Below are the tables structure:
+        1. Table: recipes (to store the data about recipes)
+            Column	        Data Type	                                        Description
+            id	            INT AUTO_INCREMENT PRIMARY KEY	                    Unique identifier for each recipe, automatically increments.
+            recipe_name	    VARCHAR(255) NOT NULL	                            Name of the recipe (max 255 characters). Cannot be NULL.
+            prep_time	    INT NOT NULL	                                    Preparation time in minutes. Cannot be NULL.
+            difficulty	    TINYINT NOT NULL CHECK (difficulty BETWEEN 1 AND 3)	Difficulty level (1 to 3).
+            vegetarian	    BOOLEAN NOT NULL	                                Whether the recipe is vegetarian (true/false). Cannot be NULL.
+            created_at	    TIMESTAMP DEFAULT CURRENT_TIMESTAMP                 Stores the date and time of creation. Defaults to the current timestamp.
+        
+            CHECK constraint: ensures values is in the given range. Example: The value of “difficulty” column should be in the range of 1 to 3. It can be 1 or 2 or 3.
+        
+        2. Table: ratings (to give ratings to the recipes)
+            Column	        Data Type	                                   Description
+            id	            INT AUTO_INCREMENT PRIMARY KEY                 Unique ID for each rating. Automatically increments.
+            recipe_id	    INT NOT NULL	                               Foreign key linking to recipes.id (each rating belongs to a recipe)
+            rating	    TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5)    Rating value between 1 (worst) and 5 (best). The constraint ensures the value is valid.
+            created_at	    TIMESTAMP DEFAULT CURRENT_TIMESTAMP	           Timestamp of when the rating was added. Defaults to the current time.
+        
+        3. FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE
+            This ensures that "recipe_id" in the ratings table must exist in the recipes table.
+            ON DELETE CASCADE → If a recipe is deleted from the recipes table, all its ratings will be deleted automatically.
+        
+        4. The ENGINE=InnoDB specifies that the InnoDB storage engine is used. This supports transactions and foreign keys.
 
-We'd like you to build a simple Recipes API. The API **MUST** conform to REST practices and **MUST** provide the following functionality:
+## 3. Recipe API Documentation
 
-- List, create, read, update, and delete Recipes
-- Search recipes
-- Rate recipes
+        Base URL: http://127.0.0.1:8080/index.php
+       
+        1. Create a New Recipe
+           
+            Endpoint: POST /recipes
+            Description: Creates a new recipe.
+            Authentication: JWT required
+           
+            Request Body:
+            {
+              "recipe_name": "Pasta",
+              "prep_time": 20,
+              "difficulty": 2,
+              "vegetarian": true
+            }
+           
+            Responses:
+            •	201 Created – Recipe successfully created.
+            •	400 Bad Request – Missing required fields.
+            •	422 Unprocessable Entity – Invalid data.
+            •	401 Unauthorized – JWT token missing/invalid.
+    
+                ![Demonstrating createRecipe API](assets/createRecipe.JPG)
+        
+        2. Get All Recipes
+           
+            Endpoint: GET /recipes
+            Description: Fetches all recipes.
+            Authentication:  Public
+           
+            Responses:
+            •	200 OK – List of recipes.
+            •	500 Internal Server Error – Database/server issue.
+    
+                ![Demonstrating listRecipes API](assets/listRecipes.JPG)
+        
+        3. Get Recipe by ID
+           
+            Endpoint: GET /recipes/{id}
+            Description: Fetches a single recipe by ID.
+            Authentication:  Public
+           
+            Responses:
+            •	200 OK – Recipe found.
+            •	404 Not Found – Recipe does not exist.
+    
+                ![Demonstrating getRecipe API](assets/getRecipe.JPG)
+           
+        4. Update a Recipe
+           
+            Endpoint: PUT /recipes/{id}
+            Description: Updates a specific recipe.
+            Authentication:  JWT required
+           
+            Request Body:
+            {
+              "recipe_name": "Updated Name",
+              "prep_time": 25,
+              "difficulty": 3,
+              "vegetarian": false
+            }
+           
+            Responses:
+            •	200 OK – Successfully updated.
+            •	400/422 – Missing or invalid data.
+            •	401 Unauthorized – JWT token missing/invalid.
+            •	404 Not Found – Recipe not found.
+    
+             ![Demonstrating updateRecipe API](assets/updateRecipe.JPG)
+        
+         5. Add Rating to a Recipe
+            Endpoint: POST /recipes/{id}/rating
+            Description: Adds a rating to a specific recipe.
+            Authentication:  Public
+            
+            Request Body:
+            {
+              "rating": 4
+            }
+            
+            Responses:
+            •	201 Created – Rating added.
+            •	400/422 – Missing or invalid rating.
+            •	404 Not Found – Recipe not found.
+    
+                ![Demonstrating rateRecipe API](assets/rateRecipe.JPG)
+        
+        6. Delete a Recipe
+            Endpoint: DELETE /recipes/{id}
+            Description: Deletes a recipe by ID and its associated ratings.
+            Authentication:  JWT required
+           
+            Responses:
+            •	200 OK – Recipe and its ratings deleted.
+            •	404 Not Found – Recipe not found.
+            •	401 Unauthorized – JWT token missing/invalid.
+    
+                ![Demonstrating deleteRecipe API](assets/deleteRecipe.JPG)
 
-### Endpoints
+    # 3.1: About JWT Authentication
 
-Your application **MUST** conform to the following endpoint structure and return the HTTP status codes appropriate to each operation. Endpoints specified as protected below **SHOULD** require authentication to view. The method of authentication is up to you.
+            JWT (JSON Web Token) is used to secure API endpoints like creating, updating, and deleting recipes.
+            The firebase/php-jwt library is used to handle JWT generation and validation. 
+            We stored the JWT secret key securely in a .env file.
 
-##### Recipes
+            AuthService.php
+                This service provides two methods:
+                    generateToken($userId) – to generate a JWT.
+                    validateToken($token) – to decode and validate incoming tokens.
 
-| Name   | Method      | URL                    | Protected |
-| ---    | ---         | ---                    | ---       |
-| List   | `GET`       | `/recipes`             | ✘         |
-| Create | `POST`      | `/recipes`             | ✓         |
-| Get    | `GET`       | `/recipes/{id}`        | ✘         |
-| Update | `PUT/PATCH` | `/recipes/{id}`        | ✓         |
-| Delete | `DELETE`    | `/recipes/{id}`        | ✓         |
-| Rate   | `POST`      | `/recipes/{id}/rating` | ✘         |
+                     ![Login API responses with JWT token](assets/jwt-token.JPG)
 
-An endpoint for recipe search functionality **MUST** also be implemented. The HTTP method and endpoint for this **MUST** be clearly documented.
+            Login Route (Dummy Authentication)
+                We added a /login endpoint that accepts a POST request with dummy credentials.
+                     ![Login API](assets/jwt-token.JPG)
 
-### Schema
+            Protecting Routes
+                To secure the sensitive API endpoints, we:
+                    Check for the "Authorization" header.
+                    Extract and validate the token using AuthService::validateToken().
 
-- **Recipe**
-    - Unique ID
-    - Name
-    - Prep time
-    - Difficulty (1-3)
-    - Vegetarian (boolean)
+                     ![updateRecipe API with JWT authentication](assets/updateRecipe-authentication.JPG)
 
-Additionally, recipes can be rated many times from 1-5 and a rating is never overwritten.
+            Protected Endpoints
+                Endpoint	    Method
+                /recipes	    POST
+                /recipes/{id}	PUT/PATCH
+                /recipes/{id}	DELETE
 
-If you need a more visual idea of how the data should be represented, [take a look at one of our recipe cards](https://ddw4dkk7s1lkt.cloudfront.net/card/hdp-chicken-with-farro-75b306ff.pdf?t=20160927003916).
-
-## Evaluation criteria
-
-These are some aspects we pay particular attention to:
-
-- You **MUST** use packages, but you **MUST NOT** use a web-app framework or microframework. That is, you can use [symfony/dependency-injection](https://packagist.org/packages/symfony/dependency-injection) but not [symfony/symfony](https://packagist.org/packages/symfony/symfony).
-- Your application **MUST** run within the containers. Please provide short setup instructions.
-- The API **MUST** return valid JSON and **MUST** follow the endpoints set out above.
-- You **MUST** write testable code and demonstrate unit testing it (for clarity,  PHPUnit is not considered a framework as per the first point above. We encourage you to use PHPUnit or any other kind of **testing** framework).
-- You **SHOULD** pay attention to best security practices.
-- You **SHOULD** follow SOLID principles where appropriate.
-- You do **NOT** have to build a UI for this API.
-
-The following earn you bonus points:
-
-- Your answers during code review
-- An informative, detailed description in the PR
-- Setup with a one liner or a script
-- Content negotiation
-- Pagination
-- Using any kind of Database Access Abstraction
-- Other types of testing - e.g. integration tests
-- Following the industry standard style guide for the language you choose to use - `PSR-2` etc.
-- A git history (even if brief) with clear, concise commit messages.
-
----
-
-Good luck!
