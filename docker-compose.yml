@@ -1,0 +1,47 @@
+services:
+  # Application container
+  php:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www/html/
+    ports:
+      - "8080:80"
+      #- "443:443"
+    links:
+      - mysql
+      - redis
+    environment:
+      DEBUG: "true"
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: recipes_db
+      DB_USERNAME: user
+      DB_PASSWORD: password
+
+  # MySQL Database
+  mysql:
+    image: mysql:latest
+    container_name: mysql_container
+    restart: always
+    environment:
+      MYSQL_ROOT_USER: root
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: recipes_db
+      MYSQL_USER: user
+      MYSQL_USER_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # Redis for caching
+  redis:
+    image: sickp/alpine-redis:3.2.2
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql_data: # This defines the missing volume
