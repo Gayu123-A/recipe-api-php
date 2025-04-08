@@ -143,6 +143,24 @@ class RecipeService{
             return ["error" => "Database error: " . $e->getMessage()];
         }
     }
+
+    /**
+     * Searches for recipes that match the given query in the recipe_name.
+     *
+     * @param string $query The search term to look for.
+     * @return array Matching recipes or an error array on failure.
+     */
+    public function searchRecipes(string $query): array{
+        try{
+            // Prepare a query using LIKE operator to perform a partial match search
+            $stmt = $this->conn->prepare('SELECT * FROM recipes WHERE recipe_name LIKE ?');
+            $stmt->execute(["%".$query."%"]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }catch(PDOException $e){
+            http_response_code(500);
+            return ["error" => "Database error: " . $e->getMessage()];
+        }
+    }
     
     /**
      * Validates and sanitizes recipe data

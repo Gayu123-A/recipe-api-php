@@ -23,13 +23,20 @@ $dummyUser = [
 ];
 
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Parse the request path from URL
 $path = explode('/', trim($_SERVER['PATH_INFO'] ?? '/', '/'));
 
 try{
     if($path[0] === 'recipes'){
-        $id = $path[1] ?? null; // recipe Id
-        $subPath = $path[2] ?? null;
 
+        if((int)$path[1]){
+            $id = $path[1] ?? null; // recipe Id
+            $subPath = $path[2] ?? null;
+        }else if($path[1] === 'search'){
+            $searchTerm = $_GET['query'] ?? '';
+        }
+        
         // API Routes. NOTE: "php://input" is used to read raw data from the request body (used in APIs).
         switch($method){
             // Read recipes by ID
@@ -38,6 +45,9 @@ try{
                 if($id){
                     // http://localhost/index.php/recipes/1
                     echo json_encode($service->getRecipe($id));
+                }else if($searchTerm){
+                    // http://localhost/index.php/recipes/search?query=Pasta
+                    echo json_encode($service->searchRecipes($searchTerm));
                 }else{
                     // http://localhost/index.php/recipes
                     echo json_encode($service->listRecipes());
