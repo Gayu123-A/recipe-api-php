@@ -14,6 +14,10 @@
    3.1: About JWT Authentication
    3.2: Search API Implementation
 
+4. Recipe API Test Suite - PHPUnit
+   4.1: Utility Functions
+   4.2: Running Tests
+
 ## 1. Docker Setup:
 
     ## 1.1 Changes made in docker-compose.yaml
@@ -282,3 +286,56 @@
             4. Finally, the routing in index.php is updated.
 
             ![searchRecipe API](assets/searchRecipe.JPG)
+
+## 4. Recipe API Test Suite - PHPUnit
+
+      1. testListRecipes()
+
+          Verifies the GET /recipes endpoint returns:
+            HTTP 200
+            JSON array with recipe_name key
+
+      2. testGetRecipe()
+
+          Creates a recipe
+          Then tests GET /recipes/{id} for that recipe
+          Asserts:
+            HTTP 200
+            JSON with recipe_name key
+
+      3. testUpdateRecipe()
+
+          Creates a recipe
+          Sends a PUT /recipes/{id} request with updated fields
+          Asserts success message "Recipe updated successfully"
+
+      4. testDeleteRecipe()
+
+          Creates a recipe
+          Deletes it via DELETE /recipes/{id}
+          Tries to fetch it again and expects "Recipe not found"
+
+    ## 4.1: Utility Functions
+
+      1. getJwtToken():
+          Authenticates using /login with dummy credentials
+          Returns JWT for authenticated routes
+
+      2. getStatusCode(array $http_response_header):
+          Extracts status code (e.g., 200, 404) from HTTP response header
+
+      3. createTestRecipe(array $data = [])
+          Creates a new recipe with optional overrides
+          Returns the newly created recipe ID
+          Used by testUpdateRecipe() and testDeleteRecipe()
+
+    ## 4.2: Running Tests
+
+        To run all tests:
+
+            php ./vendor/bin/phpunit tests/RecipeApiTests.php
+
+
+        To run a specific method:
+
+            php ./vendor/bin/phpunit --filter testUpdateRecipe tests/RecipeApiTests.php
